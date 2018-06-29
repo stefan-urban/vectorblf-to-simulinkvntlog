@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <limits>
 #include <string>
 #include <boost/program_options.hpp>
 
@@ -38,10 +39,8 @@ void print_help()
 	std::cout << std::endl;
 }
 
-bpo::variables_map handle_opts(int argc, char **argv)
+bool handle_opts(int argc, char **argv, bpo::variables_map *opts)
 {
-	bpo::variables_map opts;
-
 	// Define command line arguments
 	bpo::options_description opt_generic("Common options");
 	opt_generic.add_options()
@@ -53,15 +52,15 @@ bpo::variables_map handle_opts(int argc, char **argv)
 
 	bpo::options_description opt_timeframe("Select a timeframe inside the BLF file using");
 	opt_timeframe.add_options()
-		("fromtime,f", bpo::value<double>(), "[secs] skip input file up to this time mark")
-		("totime,t", bpo::value<double>(), "[secs] stop conversion at this time mark")
-		("duration,d", bpo::value<double>(), "[secs] stop conversion after this amount of time")
+		("fromtime,f", bpo::value<double>()->default_value(0.0), "[secs] skip input file up to this time mark")
+		("endtime,e", bpo::value<double>()->default_value(std::numeric_limits<double>::max()), "[secs] stop conversion at this time mark")
+		("duration,d", bpo::value<double>(), "[secs] stop conversion after this amount of time (has priority over endtime)")
 		;
 
-	bpo::options_description opt_timebase("Choose how much the timebase should be moved");
+	bpo::options_description opt_timebase("Choose how much the timebase should be moved (applied after the time section cut above)");
 	opt_timebase.add_options()
-		("moveby,m", bpo::value<double>(), "[secs] move the timestamps by this amount of seconds")
-		("tozero,z", bpo::value<bool>(), "[0 or 1] shift timestamp vector so that the first CAN frame starts at 0")
+		("moveby,m", bpo::value<double>()->default_value(0.0), "[secs] move the timestamps by this amount of seconds")
+		("movetozero,z", bpo::value<bool>(), "[0 or 1] shift timestamp vector so that the first CAN frame starts at 0")
 		;
 
 	bpo::options_description visible_options("Allowed options");
@@ -78,45 +77,104 @@ bpo::variables_map handle_opts(int argc, char **argv)
 			.positional(opt_posi)
 			.run();
 
-		bpo::store(parsed, opts);
+		bpo::store(parsed, *opts);
 
 		// Handle options that inhibit further execution immediately
-		if (opts.count("help")) {
+		if (opts->count("help")) {
 			print_help();
 			std::cout << opt_generic << std::endl;
 			std::cout << opt_timeframe << std::endl;
 			std::cout << opt_timebase;
-			return nullptr;
+			return false;
 		}
 
-		if (opts.count("version")) {
+		if (opts->count("version")) {
 			print_title_copy();
-			return nullptr;
+			return false;
 		}
 
 		// Evaluate (required) fields
-		bpo::notify(opts);
+		bpo::notify(*opts);
 
-		if (0 == opts["input"].as<std::string>().compare(opts["output"].as<std::string>()))
+		if (0 == (*opts)["input"].as<std::string>().compare((*opts)["output"].as<std::string>()))
 		{
-			throw bpo::error("input and output file can not be the same");
+			std::cout << "input and output file can not be the same" << std::endl;
+			return false;
 		}
 	}
 	catch (bpo::error& e)
 	{
-		std::cout << "Argument Error: " << e.what();
-		return nullptr;
+		std::cout << "argument error: " << e.what();
+		return false;
 	}
 
-	return opts;
+	return true;
 }
 
 int main(int argc, char **argv)
 {
-	auto opts = handle_opts(argc, argv);
+	bpo::variables_map opts;
 
-	auto can_data = open_blf_file(opts["input"].as<std::string>());
+	if (false == handle_opts(argc, argv, &opts))
+	{
+		return 0;
+	}
+	
+	// Obtain complete data from BLF file
+	can_data_t can_data;
+	std::string blf_filename = opts["input"].as<std::string>();
 
+	try
+	{
+		can_data = open_blf_file(blf_filename);
+	}
+	catch (blfexception e)
+	{
+		return -1;
+	}
+
+	// Define measurement start and delete unused can frames
+	double meas_start = opts["fromtime"].as<double>();
+	double meas_end = opts["endtime"].as<double>();
+
+	if (opts.count("duration"))
+	{
+		meas_end = meas_start + opts["duration"].as<double>();
+	}
+
+	while (can_data.Timestamp.size() && can_data.Timestamp.front() < meas_start)
+	{
+		can_data.Extended.pop_front();
+		can_data.Length.pop_front();
+		can_data.Remote.pop_front();
+		can_data.Error.pop_front();
+		can_data.ID.pop_front();
+		can_data.Timestamp.pop_front();
+		can_data.Data.pop_front();
+	}
+
+	while (can_data.Timestamp.size() && can_data.Timestamp.back() > meas_end)
+	{
+		can_data.Extended.pop_back();
+		can_data.Length.pop_back();
+		can_data.Remote.pop_back();
+		can_data.Error.pop_back();
+		can_data.ID.pop_back();
+		can_data.Timestamp.pop_back();
+		can_data.Data.pop_back();
+	}
+
+	// Move timebase
+	double movebytime = opts["moveby"].as<double>();
+
+	if (opts.count("movetozero") && true == opts["movetozero"].as<bool>())
+	{
+		movebytime = -1.0 * can_data.Timestamp.front();
+	}
+
+	std::for_each(can_data.Timestamp.begin(), can_data.Timestamp.end(), [movebytime](double& d) { d += movebytime;});
+
+	// Write result into MAT file
 	write_vnt_mat(opts["output"].as<std::string>(), can_data, "can_data");
 
 	return 0;

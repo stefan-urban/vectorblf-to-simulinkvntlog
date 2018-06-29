@@ -14,7 +14,7 @@ can_data_t open_blf_file(std::string filename)
 	file.open(filename.c_str());
 
 	if (!file.is_open()) {
-		std::cout << "Could not open BLF file" << std::endl;
+		std::cout << "could not open BLF file" << std::endl;
 		throw blfexception();
 	}
 
@@ -29,7 +29,8 @@ can_data_t open_blf_file(std::string filename)
 		}
 		catch (std::runtime_error(e))
 		{
-			std::cout << "Exception: " << e.what() << std::endl;
+			std::cout << "exception during file reading: " << e.what() << std::endl;
+			throw blfexception();
 		}
 
 		// skip everything other than can messages
@@ -94,9 +95,11 @@ can_data_t open_blf_file(std::string filename)
 
 		if (can_data.ID.size() % 10000 == 0)
 		{
-			std::cout << "Did read " << can_data.ID.size() << " CAN messages. Processing ..." << std::endl;
+			std::cout << "did read " << can_data.ID.size() << " CAN messages. processing ..." << std::endl;
 		}
 	}
+
+	std::cout << "did read " << can_data.ID.size() << " CAN messages. finished!" << std::endl;
 
 	file.close();
 

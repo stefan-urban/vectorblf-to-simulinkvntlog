@@ -6,19 +6,23 @@ by the MATLAB/Simulink Vehicle Networking Toolbox CAN Replay block. The two form
 frame based, meaning there is no information about signals. You will need a DBC file or another
 signal description inside your CAN Unpack blocks.
 
-# Required software
+## Required software
 
 * Boost Libraries (tested with 1.67.0): [[boost_1_67_0-msvc-14.1-64.exe](https://dl.bintray.com/boostorg/release/1.67.0/binaries/boost_1_67_0-msvc-14.1-64.exe)]
 * BLF Reader by Tobias Lorenz: https://bitbucket.org/tobylorenz/vector_blf
 * MATLAB MAT File I/O Library: http://matio.sf.net
 
-# How to build
+## How to build
 
 1. Open Visual Studio solution file
 2. Check include and lib folders and adjust them to your installation
 3. Build x64
 
-# License
+## ToDo
+
+- More efficient implementation, very q'n'd
+
+## License
 
 Copyright (c) 2018 Stefan Urban
 
