@@ -10,7 +10,8 @@
 namespace bpo = boost::program_options;
 
 
-#define VERSION_STRING "Vektor BLF to Simulink VNT CAN Logfile Converter 1.0.0.0"
+#define VERSION_STRING "Vektor BLF to Simulink VNT CAN Logfile Converter"
+#define BUILD_STRING "Version  1.0.0.1 - Build " __DATE__ " " __TIME__
 #define COPYRIGHT_STRING "(C) 2018 Stefan Urban <stefan.urban@live.de>"
 
 
@@ -18,6 +19,7 @@ void print_title_copy()
 {
 	std::cout << VERSION_STRING << std::endl;
 	std::cout << COPYRIGHT_STRING << std::endl;
+	std::cout << BUILD_STRING << std::endl;
 }
 
 void print_help()
@@ -113,69 +115,82 @@ bool handle_opts(int argc, char **argv, bpo::variables_map *opts)
 
 int main(int argc, char **argv)
 {
-	bpo::variables_map opts;
+	try {
+		bpo::variables_map opts;
 
-	if (false == handle_opts(argc, argv, &opts))
-	{
-		return 0;
+		if (false == handle_opts(argc, argv, &opts))
+		{
+			return 0;
+		}
+
+		// Obtain complete data from BLF file
+		can_data_t can_data;
+		std::string blf_filename = opts["input"].as<std::string>();
+
+		try
+		{
+			can_data = open_blf_file(blf_filename);
+		}
+		catch (blfexception e)
+		{
+			return -1;
+		}
+
+		std::cout << "back in main" << std::endl;
+
+		// Define measurement start and delete unused can frames
+		double meas_start = opts["fromtime"].as<double>();
+		double meas_end = opts["endtime"].as<double>();
+
+		if (opts.count("duration"))
+		{
+			meas_end = meas_start + opts["duration"].as<double>();
+		}
+
+		while (can_data.Timestamp.size() && can_data.Timestamp.front() < meas_start)
+		{
+			can_data.Extended.pop_front();
+			can_data.Length.pop_front();
+			can_data.Remote.pop_front();
+			can_data.Error.pop_front();
+			can_data.ID.pop_front();
+			can_data.Timestamp.pop_front();
+			for (size_t i = 0; i < 8; i++) can_data.Data.pop_front();
+		}
+
+		while (can_data.Timestamp.size() && can_data.Timestamp.back() > meas_end)
+		{
+			can_data.Extended.pop_back();
+			can_data.Length.pop_back();
+			can_data.Remote.pop_back();
+			can_data.Error.pop_back();
+			can_data.ID.pop_back();
+			can_data.Timestamp.pop_back();
+			for (size_t i = 0; i < 8; i++) can_data.Data.pop_back();
+		}
+
+		// Move timebase
+		double movebytime = opts["moveby"].as<double>();
+
+		if (opts.count("movetozero") && true == opts["movetozero"].as<bool>())
+		{
+			movebytime = -1.0 * can_data.Timestamp.front();
+		}
+
+		std::for_each(can_data.Timestamp.begin(), can_data.Timestamp.end(), [movebytime](double& d) { d += movebytime;});
+
+		// Write result into MAT file
+		write_vnt_mat(opts["output"].as<std::string>(), can_data, "can_data");
+
 	}
-	
-	// Obtain complete data from BLF file
-	can_data_t can_data;
-	std::string blf_filename = opts["input"].as<std::string>();
-
-	try
+	catch (std::exception e)
 	{
-		can_data = open_blf_file(blf_filename);
+		std::cout << "exception: " << e.what() << std::endl;
 	}
-	catch (blfexception e)
+	catch (...)
 	{
-		return -1;
+		std::cout << "unknown exception" << std::endl;
 	}
-
-	// Define measurement start and delete unused can frames
-	double meas_start = opts["fromtime"].as<double>();
-	double meas_end = opts["endtime"].as<double>();
-
-	if (opts.count("duration"))
-	{
-		meas_end = meas_start + opts["duration"].as<double>();
-	}
-
-	while (can_data.Timestamp.size() && can_data.Timestamp.front() < meas_start)
-	{
-		can_data.Extended.pop_front();
-		can_data.Length.pop_front();
-		can_data.Remote.pop_front();
-		can_data.Error.pop_front();
-		can_data.ID.pop_front();
-		can_data.Timestamp.pop_front();
-		can_data.Data.pop_front();
-	}
-
-	while (can_data.Timestamp.size() && can_data.Timestamp.back() > meas_end)
-	{
-		can_data.Extended.pop_back();
-		can_data.Length.pop_back();
-		can_data.Remote.pop_back();
-		can_data.Error.pop_back();
-		can_data.ID.pop_back();
-		can_data.Timestamp.pop_back();
-		can_data.Data.pop_back();
-	}
-
-	// Move timebase
-	double movebytime = opts["moveby"].as<double>();
-
-	if (opts.count("movetozero") && true == opts["movetozero"].as<bool>())
-	{
-		movebytime = -1.0 * can_data.Timestamp.front();
-	}
-
-	std::for_each(can_data.Timestamp.begin(), can_data.Timestamp.end(), [movebytime](double& d) { d += movebytime;});
-
-	// Write result into MAT file
-	write_vnt_mat(opts["output"].as<std::string>(), can_data, "can_data");
 
 	return 0;
 }

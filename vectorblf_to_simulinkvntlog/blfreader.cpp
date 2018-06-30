@@ -33,12 +33,12 @@ can_data_t open_blf_file(std::string filename)
 			throw blfexception();
 		}
 
-		// skip everything other than can messages
 		if (ohb == nullptr)
 		{
 			break;
 		}
 
+		// skip everything other than can messages
 		if (ohb->objectType != Vector::BLF::ObjectType::CAN_MESSAGE)
 		{
 			continue;
@@ -91,7 +91,7 @@ can_data_t open_blf_file(std::string filename)
 
 		std::move(msg_data.begin(), msg_data.end(), std::back_inserter(can_data.Data));
 
-		delete msg;
+		//delete msg;
 
 		if (can_data.ID.size() % 10000 == 0)
 		{
@@ -100,6 +100,7 @@ can_data_t open_blf_file(std::string filename)
 	}
 
 	std::cout << "did read " << can_data.ID.size() << " CAN messages. finished!" << std::endl;
+	std::cout << "from " << can_data.Timestamp.front() << " to " << can_data.Timestamp.back() << std::endl;
 
 	file.close();
 
