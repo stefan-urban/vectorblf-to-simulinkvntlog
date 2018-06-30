@@ -103,6 +103,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Users\Stefan\Repositories\matio\src;C:\Users\Stefan\Repositories\tobylorenz-vector_blf\build\src;C:\Users\Stefan\Repositories\tobylorenz-vector_blf\src;C:\local\boost_1_67_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <AdditionalDependencies>C:\Users\Stefan\Repositories\tobylorenz-vector_blf\build\src\Vector\BLF\Debug\libvectorblf.lib;C:\Users\Stefan\Repositories\matio\visual_studio\x64\Debug\libmatio.lib;%(AdditionalDependencies)</AdditionalDependencies>
