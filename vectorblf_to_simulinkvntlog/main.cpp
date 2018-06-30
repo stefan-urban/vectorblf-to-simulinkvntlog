@@ -11,7 +11,7 @@ namespace bpo = boost::program_options;
 
 
 #define VERSION_STRING "Vektor BLF to Simulink VNT CAN Logfile Converter"
-#define BUILD_STRING "Version  1.0.0.2 - Build " __DATE__ " " __TIME__
+#define BUILD_STRING "Version  1.1.0.0 - Build " __DATE__ " " __TIME__
 #define COPYRIGHT_STRING "(C) 2018 Stefan Urban <stefan.urban@live.de>"
 
 
